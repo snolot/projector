@@ -1,0 +1,42 @@
+@font-face {
+    font-family: "Neuland Grotesk Condensed";
+    src: url("../font/NeulandGrotesk/NeulandGrotesk-CondensedBold.woff2") format("woff2");
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Neuland Grotesk Condensed";
+    src: url("../font/NeulandGrotesk/NeulandGrotesk-CondensedLight.woff2") format("woff2");
+    font-weight: 300;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Neuland Grotesk Condensed";
+    src: url("../font/NeulandGrotesk/NeulandGrotesk-CondensedRegular.woff2") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Neuland Grotesk";
+    src: url("../font/NeulandGrotesk/NeulandGrotesk-Regular.woff2") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+}
+
+
+@font-face {
+    font-family: "Neuland Grotesk";
+    src: url("../font/NeulandGrotesk/NeulandGrotesk-Bold.woff2") format("woff2");
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Neuland Grotesk";
+    src: url("../font/NeulandGrotesk/NeulandGrotesk-Light.woff2") format("woff2");
+    font-weight: 300;
+    font-style: normal;
+}

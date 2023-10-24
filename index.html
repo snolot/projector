@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>three-projector</title>
+	<link rel="stylesheet" type="text/css" href="./css/fonts.css">
+	<link rel="stylesheet" type="text/css" href="../style.css">
+		
+	</style>
+</head>
+<body>
+	<div class="title">Projector </div>
+	<div class="subtitle">WebGL Effect<div class="info">Done with three.js</div></div>
+	
+	<script type="module">
+		import * as THREE from './js/vendors/three.js-131/build/three.module.js';
+		import {OrbitControls} from './js/vendors/three.js-131/examples/jsm/controls/OrbitControls.js';
+		import {TWEEN} from './js/vendors/three.js-131/examples/jsm/libs/tween.module.min.js';
+
+		import ProjectedMaterial, {
+		  projectInstanceAt,
+		  allocateProjectionData,
+		} from './js/ProjectedMaterial.js';
+
+		import TextureCreator from './js/TextureCreator.js';
+		const title = document.querySelector('.title');
+		const subtitle = document.querySelector('.subtitle');
+		const TEXTURES = [
+			{
+				URL:'./textures/snake.jpg',
+				WIDTH:1200,
+				HEIGHT:758
+			},
+			{
+				URL:'./textures/shrimp.jpg',
+				WIDTH:1960,
+				HEIGHT:1225
+			},
+			{
+				URL:'./textures/crab.jpg',
+				WIDTH:968,
+				HEIGHT:645
+			},
+			{
+				URL:'./textures/lantern.jpg',
+				WIDTH:1400,
+				HEIGHT:737
+			},
+			{
+				URL:'./textures/Squid-1200x675.jpg',
+				WIDTH:1200,
+				HEIGHT:675
+			},
+			{
+				URL:'./textures/fangtooth2.jpg',
+				WIDTH:1860,
+				HEIGHT:1158
+			},
+			{
+				URL:'./textures/nautilus.jpg',
+				WIDTH:1500,
+				HEIGHT:1024
+			},
+			{
+				URL:'./textures/deepsea.jpg',
+				WIDTH:1200,
+				HEIGHT:800
+			},
+			{
+				URL:'./textures/tick.jpg',
+				WIDTH:980,
+				HEIGHT:652
+			},
+			{
+				URL:'./textures/blue-jellyfish-1024x683.jpg',
+				WIDTH:1024,
+				HEIGHT:683
+			},
+			{
+				URL:'./textures/iqos2.jpg',
+				WIDTH:1920,
+				HEIGHT:924
+			}		
+		];
+
+		const NUM_INSTANCES = 1000;
+		const TEXTURE_SCALE = 1.05;
+		const padding = 16;
+		const dummy = new THREE.Object3D();
+
+		let camera, scene, renderer, material, instancedMesh, control, texture;
+		let projector;
+		let objects;
+		let isActive = true;
+		let currentLevel = 0;
+		let levelEnded =  false;
+		const datas = [];
+
+		const startLevel = (level) => {
+			currentLevel = level;
+			
+			//window.location.replace(`http://localhost:8081/three-projector/index2.html#${currentLevel}`);	
+			
+			texture = new THREE.TextureLoader().load(TEXTURES[currentLevel].URL, () => {
+				texture.minFilter = THREE.NearestFilter;
+	            texture.magFilter = THREE.NearestFilter;
+
+	 			material = new ProjectedMaterial({
+			      camera: camera,
+			      texture,
+			      textureScale: TEXTURE_SCALE,
+			      color: new THREE.Color(0,0,0),
+			      instanced: true,
+			      width:TEXTURES[currentLevel].WIDTH,
+			      height:TEXTURES[currentLevel].HEIGHT
+			    });
+
+	 			
+			    initObjects();
+			    levelEnded = false;
+
+			});	
+		}
+
+		const endLevel = () => {
+			
+			const sp = new THREE.Spherical();
+			sp.setFromVector3(camera.position.clone());
+
+			const obj = {phi:sp.phi, theta:sp.theta};
+
+			new TWEEN.Tween(obj).to({phi:Math.PI * .5, theta:0,}, 1000)
+			.onUpdate(() => {
+				camera.position.setFromSphericalCoords(200, obj.phi, obj.theta);
+				camera.lookAt(scene.position);
+			})
+			.onComplete(() => {				
+				setTimeout(() => {
+					startLevel(currentLevel + 1);
+				}, 1500);
+			})
+			.easing(TWEEN.Easing.Bounce.Out)
+			.start();
+		};
+
+		const onWindowResize = () => {
+            const width = window.innerWidth - padding * 2;
+            const height = window.innerHeight - padding * 2;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(width, height);
+        };
+        
+        const scaleAtEnd = () => {
+            for (let i = 0; i < NUM_INSTANCES; i++) {
+
+                const {x,y,z,size} = datas[i]; 
+                
+                dummy.position.set(x, y, z);
+                dummy.scale.set(size+20, size+20, size+20);
+                dummy.updateMatrix();
+
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+                //dummy.updateMatrixWorld();
+
+      			//projectInstanceAt(i, instancedMesh, dummy.matrixWorld);
+            }
+
+            instancedMesh.instanceMatrix.needsUpdate = true;
+        };
+
+        const resetCameraPosition = async() => {
+        	console.log('resetCameraPosition');
+
+        	return new Promise(resolve => {
+	        	camera.position.setFromSphericalCoords(200, Math.random() * Math.PI, Math.random() * 2 * Math.PI);
+				
+				camera.lookAt(scene.position);
+				
+				if(control){
+					control.enabled = true;
+					control.update();
+				}
+
+				resolve(true);
+        	});
+        };
+
+		const initObjects = async() => {
+			
+			if(instancedMesh) {
+				scene.remove(instancedMesh);
+				instancedMesh.geometry.dispose();
+				instancedMesh.material.dispose();
+			}
+	
+			await resetCameraPosition();
+
+			const geometry = new THREE.IcosahedronBufferGeometry(.1, 0);
+			//const geometry = new THREE.BoxBufferGeometry(.1, .1,.1);
+			//const geometry = new THREE.SphereBufferGeometry(.1, 12,  12);
+
+			allocateProjectionData(geometry, NUM_INSTANCES);
+
+            instancedMesh = new THREE.InstancedMesh(geometry, material, NUM_INSTANCES)
+            instancedMesh.castShadow = true;
+            instancedMesh.receiveShadow = true;
+
+            for (let i = 0; i < NUM_INSTANCES; i++) {
+
+                const x = Math.random() * 300 - 150;//i - i / 2;
+                const y = Math.random() * 200 - 100;//i - i / 2;
+                const z = Math.random() * 350 - 175;
+                const size = Math.random() * 120 + 60;
+                
+                datas.push({x,y,z,size});
+
+                dummy.position.set(x, y, z);
+                dummy.scale.set(size, size, size);
+                dummy.updateMatrix();
+
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+                dummy.updateMatrixWorld();
+
+      			projectInstanceAt(i, instancedMesh, dummy.matrixWorld);
+            }
+
+      		instancedMesh.instanceMatrix.needsUpdate = true;
+            scene.add(instancedMesh);
+           
+
+			renderer.domElement.focus();
+		};
+
+		const initLights = () => {			
+			const position = new THREE.Vector3(0, 10, 10);
+
+			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6)
+			directionalLight.position.copy(position)
+
+			scene.add(directionalLight)
+
+			const ambientLight = new THREE.AmbientLight(0xcccccc, 0.9)
+			scene.add(ambientLight)
+		};
+
+		const initEvents = () => {
+			//window.onhashchange = (e) => { window.location.reload(); };
+			window.addEventListener('resize', onWindowResize);
+
+			/*window.addEventListener('keyup', (e) => {				
+				if (e.keyCode === 32) {
+					endLevel();
+				}
+			});*/
+		};
+
+		const init = async() => {
+			console.log('init');
+
+			camera = new THREE.PerspectiveCamera(
+				60,
+				innerWidth/innerHeight,
+				.1,1000
+			);
+			
+			scene = new THREE.Scene();
+			camera.position.z = 200;
+			scene.background = new THREE.Color(0,0,0);
+		
+			renderer = new THREE.WebGLRenderer({
+				antialias: true,
+				transparent:true,
+			});
+			
+			renderer.outputEncoding = THREE.sRGBEncoding;
+	    	renderer.shadowMap.enabled = true;
+			renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+			
+			document.body.appendChild(renderer.domElement);
+
+			renderer.setSize(innerWidth, innerHeight);
+			
+
+			texture = new THREE.TextureLoader().load(TEXTURES[currentLevel].URL, async() => {
+				texture.minFilter = THREE.NearestFilter;
+	            texture.magFilter = THREE.NearestFilter;
+
+	 			material = new ProjectedMaterial({
+			      camera: camera,
+			      texture,
+			      textureScale: TEXTURE_SCALE,
+			      color: new THREE.Color(0,0,0),
+			      instanced: true,
+			      width:TEXTURES[currentLevel].WIDTH,
+			      height:TEXTURES[currentLevel].HEIGHT
+			    });
+
+	 			initLights();
+				initEvents();
+				await initObjects();
+				
+				control = new OrbitControls(camera, renderer.domElement);
+				control.enableZoom = false;
+				control.enablePan = false;
+				control.enabled = true;
+
+				title.classList.add('show')
+				subtitle.classList.add('show')
+
+				update();
+			});	
+		};
+
+		const checkSphericalDistance = () => {
+			const sp = new THREE.Spherical().setFromVector3(camera.position.clone());
+			const sp2 = new THREE.Spherical(200, Math.PI * .5, 0);
+			//console.log(Math.abs(sp.phi - sp2.phi))
+			if (Math.abs(sp.phi - sp2.phi) < .02 && Math.abs(sp.theta - sp2.theta) < .02) { 
+				if (!levelEnded) {
+					console.log('checkSphericalDistance OFF');
+					levelEnded = true;
+					control.enabled = false;
+					endLevel();
+				}
+			}
+		}
+
+		const update = () => {
+			requestAnimationFrame(update);
+
+			if(!levelEnded)
+				checkSphericalDistance();
+			
+			TWEEN.update();
+
+			renderer.render(scene, camera);
+		};
+
+		init();
+
+	</script>
+</body>
+</html>
